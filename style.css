@@ -1,0 +1,202 @@
+:root {
+    --bg: #050308;
+    --panel: #110c1a;
+    --panel-2: #1c1429;
+    --line: #2c2140;
+    --text: #f5f2fa;
+    --muted: #a79bb8;
+    --green: #39ff14;
+    --purple: #b026ff;
+    --danger: #ff4d6d;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+    font-size: 15px;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+.app {
+    display: grid;
+    grid-template-columns: 290px 1fr;
+    grid-template-rows: 1fr auto;
+    grid-template-areas: "side main" "player player";
+    gap: 8px;
+    padding: 8px 8px 0;
+    height: 100vh;
+}
+
+/* ---- sidebar ---- */
+.sidebar { grid-area: side; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.brand { display: flex; align-items: center; gap: 12px; background: var(--panel); border-radius: 10px; padding: 16px; }
+.brand svg { width: 48px; height: 48px; filter: drop-shadow(0 0 8px rgba(176, 38, 255, .6)); }
+.brand h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; color: var(--green); text-shadow: 0 0 14px rgba(57, 255, 20, .55); }
+.brand h1 span { color: var(--purple); text-shadow: 0 0 14px rgba(176, 38, 255, .8); }
+.brand p { font-size: 12px; color: var(--muted); }
+.library { background: var(--panel); border-radius: 10px; padding: 16px 10px; flex: 1; overflow-y: auto; min-height: 0; }
+.library h2 { font-size: 15px; font-weight: 700; color: var(--muted); margin: 0 6px 12px; }
+.playlist-form { display: flex; gap: 6px; margin: 0 4px 12px; }
+.playlist-form input { flex: 1; min-width: 0; background: var(--panel-2); border: 1px solid transparent; border-radius: 999px; padding: 8px 14px; }
+.playlist-form input:focus { border-color: var(--purple); outline: none; }
+.playlist-form button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--green); color: #041a00; font-size: 20px; font-weight: 700; line-height: 1; }
+.playlist-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.playlist-list li { display: flex; align-items: center; border-radius: 8px; }
+.playlist-list li:hover { background: var(--panel-2); }
+.playlist-list li.selected { background: var(--panel-2); }
+.playlist-list li.selected .pick span:first-child { color: var(--green); }
+.playlist-list .pick { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 11px 10px; display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.playlist-list .pick span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.playlist-list .count { color: var(--muted); font-size: 12px; font-weight: 400; }
+.playlist-list .playing-dot { color: var(--purple); margin-right: 6px; }
+.playlist-list .del { background: none; border: 0; color: var(--muted); padding: 8px 10px; border-radius: 6px; }
+.playlist-list .del:hover { color: var(--danger); }
+.empty { color: var(--muted); padding: 28px 8px; text-align: center; line-height: 1.6; }
+
+/* ---- main ---- */
+.main { grid-area: main; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); border-radius: 10px; min-height: 0; }
+/* Only this part scrolls. The video stage sits above it, so it is never scrolled away. */
+.main-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.hero { display: flex; align-items: flex-end; gap: 22px; padding: 44px 28px 24px; background: linear-gradient(180deg, #5a14a0 0%, #2a0d4a 55%, var(--panel) 100%); }
+.cover { width: 168px; height: 168px; flex: none; border-radius: 8px; display: grid; place-items: center; background: linear-gradient(135deg, #1a0b2e, #0b0712); box-shadow: 0 10px 40px rgba(0, 0, 0, .6), 0 0 0 1px rgba(57, 255, 20, .35); }
+.cover svg { width: 120px; height: 120px; }
+.hero-text { min-width: 0; }
+.kicker { font-size: 13px; font-weight: 600; }
+.hero h2 { font-size: clamp(30px, 5vw, 64px); font-weight: 900; letter-spacing: -1.5px; line-height: 1.05; margin: 6px 0 10px; overflow-wrap: anywhere; }
+.hero p { color: #d8cdea; font-size: 14px; }
+.actions { display: flex; align-items: center; gap: 18px; padding: 8px 28px 18px; }
+.big-play { width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--green); color: #041a00; font-size: 20px; box-shadow: 0 0 22px rgba(57, 255, 20, .5); transition: transform .1s; }
+.big-play:hover { transform: scale(1.06); }
+.btn { background: transparent; border: 1px solid var(--muted); border-radius: 999px; padding: 8px 18px; font-weight: 600; }
+.btn:hover:not(:disabled) { border-color: var(--purple); color: #fff; box-shadow: 0 0 12px rgba(176, 38, 255, .5); }
+.btn.primary { background: var(--green); border-color: var(--green); color: #041a00; }
+.btn.small { padding: 5px 12px; font-size: 13px; }
+.btn.active { border-color: var(--green); color: var(--green); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.tabs { display: flex; gap: 8px; padding: 0 28px; margin-bottom: 14px; }
+.tab { background: var(--panel-2); border: 0; padding: 7px 14px; border-radius: 999px; color: var(--text); font-size: 14px; }
+.tab.active { background: var(--purple); color: #fff; box-shadow: 0 0 14px rgba(176, 38, 255, .55); }
+.view { padding: 0 20px 24px; }
+
+.song-list { list-style: none; margin: 0; padding: 0; }
+.song, .song-head { display: grid; grid-template-columns: 24px 30px 1fr 92px 52px 96px; align-items: center; gap: 10px; padding: 8px 10px; }
+.song-head { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.song-head span:nth-child(2) { text-align: right; }
+.song-head:has(+ .song-list .empty) { display: none; }
+.song { border-radius: 6px; border: 1px solid transparent; }
+.song:hover { background: var(--panel-2); }
+.song.current { background: rgba(176, 38, 255, .14); }
+.song.current .title, .song.current .num { color: var(--green); }
+.song.dragging { opacity: .4; }
+.song.drop-before { border-top-color: var(--green); }
+.song.drop-after { border-bottom-color: var(--green); }
+.handle { cursor: grab; color: var(--muted); user-select: none; }
+.num { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.info { min-width: 0; background: none; border: 0; text-align: left; padding: 0; }
+.info .title, .info .artist { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.info .artist { color: var(--muted); font-size: 13px; }
+.badge { justify-self: start; font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
+.dur { color: var(--muted); font-variant-numeric: tabular-nums; }
+.row-actions { display: flex; gap: 2px; justify-content: flex-end; }
+.row-actions button { background: none; border: 0; color: var(--muted); padding: 4px 7px; border-radius: 6px; }
+.row-actions button:hover:not(:disabled) { color: var(--text); background: var(--line); }
+.row-actions button:disabled { opacity: .25; cursor: default; }
+.row-actions .remove:hover { color: var(--danger) !important; }
+.result { grid-template-columns: 36px 44px 1fr auto auto auto; }
+.badge.full { border-color: var(--green); color: var(--green); }
+.preview { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--green); color: #041a00; font-size: 12px; }
+.preview:hover { transform: scale(1.08); box-shadow: 0 0 12px rgba(57, 255, 20, .6); }
+.search-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin: 0 8px 12px; }
+.search-bar .hint { margin: 0; }
+.add-to { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.add-to select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font: inherit; max-width: 200px; }
+.result img, .result .noart { width: 44px; height: 44px; border-radius: 4px; background: var(--panel-2); object-fit: cover; }
+
+.search-form { display: flex; gap: 8px; margin: 0 8px 8px; }
+.search-form input { flex: 1; background: var(--panel-2); border: 1px solid transparent; border-radius: 999px; padding: 11px 18px; }
+.search-form input:focus { border-color: var(--purple); outline: none; }
+.hint { color: var(--muted); font-size: 13px; margin: 0 8px 12px; }
+
+/* ---- linked list view ---- */
+.structure-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 8px 16px; color: var(--muted); }
+.structure { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; padding: 0 8px; }
+.null { align-self: center; color: var(--muted); font-family: ui-monospace, monospace; font-size: 13px; }
+.link { align-self: center; color: var(--purple); font-size: 18px; }
+.node { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 150px; max-width: 200px; }
+.node.current { border-color: var(--green); box-shadow: 0 0 14px rgba(57, 255, 20, .35); }
+.node .tags { display: flex; gap: 4px; min-height: 18px; margin-bottom: 4px; }
+.node .tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 1px 6px; border-radius: 4px; background: var(--purple); color: #fff; }
+.node .tag.cur { background: var(--green); color: #041a00; }
+.node strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node code { display: block; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
+
+/* ---- cinema stage: the YouTube video while it plays ----
+   It lives above the scrolling area, so it stays on screen at all times. */
+.stage { display: none; flex: none; flex-direction: column; align-items: center; gap: 14px; padding: 24px 28px 20px;
+    --video-h: min(46vh, 520px);
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(176, 38, 255, .55), transparent 65%),
+        radial-gradient(ellipse at 50% 100%, rgba(57, 255, 20, .12), transparent 60%),
+        #07040c;
+    border-bottom: 1px solid var(--line); }
+.stage.show { display: flex; }
+.stage-video { height: var(--video-h); width: calc(var(--video-h) * 16 / 9); max-width: 100%; border-radius: 16px; overflow: hidden; background: #000;
+    border: 2px solid var(--purple);
+    box-shadow: 0 0 0 1px rgba(57, 255, 20, .5), 0 0 36px rgba(176, 38, 255, .7), 0 0 90px rgba(57, 255, 20, .22); }
+.stage-video > div, .stage-video iframe { width: 100%; height: 100%; border: 0; display: block; }
+.stage-info { width: calc(var(--video-h) * 16 / 9); max-width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.stage-text { min-width: 0; display: grid; gap: 2px; }
+.stage-text .kicker { color: var(--green); text-transform: uppercase; letter-spacing: 2px; font-size: 11px; text-shadow: 0 0 10px rgba(57, 255, 20, .6); }
+.stage-text strong { font-size: clamp(18px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-text span:last-child { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-info .btn { flex: none; }
+/* compact view (chosen with the button) and docked view (automatic while you
+   scroll through the playlist): smaller video beside the title */
+.stage.compact, .stage.docked { --video-h: 200px; flex-direction: row; align-items: center; padding: 14px 28px; }
+.stage.compact .stage-video, .stage.docked .stage-video { flex: none; border-radius: 12px; }
+.stage.compact .stage-info, .stage.docked .stage-info { width: auto; flex: 1; flex-direction: column; align-items: flex-start; min-width: 0; }
+.stage.docked #stage-size { display: none; }
+
+/* ---- player ---- */
+.player { grid-area: player; display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; gap: 16px; padding: 12px 16px; }
+.now { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.art { width: 52px; height: 52px; border-radius: 6px; background: linear-gradient(135deg, var(--purple), var(--green)); background-size: cover; background-position: center; flex: none; }
+.now-text { min-width: 0; display: grid; }
+.now-text strong, .now-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.now-text span { color: var(--muted); font-size: 12px; }
+.controls { display: flex; justify-content: center; align-items: center; gap: 12px; }
+.icon { background: none; border: 0; font-size: 18px; width: 36px; height: 36px; border-radius: 50%; color: var(--muted); }
+.icon:hover { color: var(--text); }
+.icon.play { background: var(--text); color: #000; font-size: 14px; }
+.icon.play:hover { transform: scale(1.06); color: #000; }
+.icon.on { color: var(--green); text-shadow: 0 0 10px rgba(57, 255, 20, .7); }
+.progress { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.progress input { flex: 1; }
+.volume { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.volume input { width: 110px; }
+input[type="range"] { accent-color: var(--green); height: 4px; }
+
+.toast { position: fixed; left: 50%; bottom: 110px; transform: translate(-50%, 20px); background: var(--green); color: #041a00; font-weight: 600; padding: 10px 18px; border-radius: 999px; opacity: 0; pointer-events: none; transition: .2s; max-width: 90vw; box-shadow: 0 0 20px rgba(57, 255, 20, .4); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.error { background: var(--danger); color: #fff; box-shadow: none; }
+
+@media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; grid-template-areas: "side" "main" "player"; }
+    .sidebar { max-height: 36vh; }
+    .stage { padding: 12px 16px; --video-h: min(30vh, 56vw); }
+    .stage.compact, .stage.docked { --video-h: 112px; padding: 10px 16px; gap: 12px; }
+    .stage-info { flex-direction: column; align-items: flex-start; }
+    .stage.compact #stage-size, .stage.docked .kicker { display: none; }
+    .song, .song-head { grid-template-columns: 20px 1fr 44px 84px; }
+    .result { grid-template-columns: 36px 44px 1fr auto; }
+    .result .dur { display: none; }
+    .song .num, .song .badge, .song-head span:nth-child(2), .song-head span:nth-child(4) { display: none; }
+    .player { grid-template-columns: 1fr; gap: 8px; }
+    .volume { display: none; }
+
+}

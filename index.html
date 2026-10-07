@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Play7 · Music Player</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="35" r="15" fill="#1a1026" stroke="#b026ff" stroke-width="3"/><path d="M12 36v-6a20 20 0 0 1 40 0v6" fill="none" stroke="#b026ff" stroke-width="5" stroke-linecap="round"/><rect x="6" y="30" width="11" height="18" rx="5" fill="#39ff14"/><rect x="47" y="30" width="11" height="18" rx="5" fill="#39ff14"/><path d="M20 32h24v4a5 5 0 0 1-5 5h-3l-4-4-4 4h-3a5 5 0 0 1-5-5z" fill="#39ff14"/><path d="M27 45q5 3 10 0" fill="none" stroke="#39ff14" stroke-width="2.5" stroke-linecap="round"/></svg>
+                <div>
+                    <h1>Play<span>7</span></h1>
+                    <p>your music, your mix</p>
+                </div>
+            </div>
+
+            <div class="library">
+            <h2>Your Library</h2>
+            <form id="playlist-form" class="playlist-form">
+                <input id="playlist-name" type="text" maxlength="40" placeholder="New playlist name" aria-label="New playlist name" />
+                <button type="submit" title="Create playlist">+</button>
+            </form>
+            <ul id="playlist-list" class="playlist-list"></ul>
+            </div>
+        </aside>
+
+        <main class="main">
+            <section id="yt-box" class="stage" aria-label="Now playing video">
+                <div class="stage-video"><div id="yt-player"></div></div>
+                <div class="stage-info">
+                    <div class="stage-text">
+                        <span class="kicker">Now playing</span>
+                        <strong id="stage-title"></strong>
+                        <span id="stage-artist"></span>
+                    </div>
+                    <button id="stage-size" class="btn small">Compact view</button>
+                </div>
+            </section>
+
+            <div id="main-scroll" class="main-scroll">
+            <header class="hero">
+                <div class="cover"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="35" r="15" fill="#1a1026" stroke="#b026ff" stroke-width="3"/><path d="M12 36v-6a20 20 0 0 1 40 0v6" fill="none" stroke="#b026ff" stroke-width="5" stroke-linecap="round"/><rect x="6" y="30" width="11" height="18" rx="5" fill="#39ff14"/><rect x="47" y="30" width="11" height="18" rx="5" fill="#39ff14"/><path d="M20 32h24v4a5 5 0 0 1-5 5h-3l-4-4-4 4h-3a5 5 0 0 1-5-5z" fill="#39ff14"/><path d="M27 45q5 3 10 0" fill="none" stroke="#39ff14" stroke-width="2.5" stroke-linecap="round"/></svg></div>
+                <div class="hero-text">
+                    <span class="kicker">Playlist</span>
+                    <h2 id="playlist-title">No playlist selected</h2>
+                    <p id="playlist-meta"></p>
+                </div>
+            </header>
+            <div class="actions">
+                <button id="hero-play" class="big-play" title="Play playlist" aria-label="Play playlist">▶</button>
+                <button id="add-local" class="btn">＋ Add Local Songs</button>
+                <input id="file-input" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac" multiple hidden />
+            </div>
+
+            <nav class="tabs" role="tablist">
+                <button class="tab active" data-tab="songs">Songs</button>
+                <button class="tab" data-tab="search">Search Online</button>
+                <button class="tab" data-tab="structure">Linked List View</button>
+            </nav>
+
+            <section id="view-songs" class="view">
+                <div class="song-head"><span></span><span>#</span><span>Title</span><span>Source</span><span>Time</span><span></span></div>
+                <ol id="song-list" class="song-list"></ol>
+            </section>
+
+            <section id="view-search" class="view" hidden>
+                <form id="search-form" class="search-form">
+                    <input id="search-input" type="search" placeholder="Search artist or song…" aria-label="Search artist or song" />
+                    <button class="btn primary" type="submit">Search</button>
+                </form>
+                <div class="search-bar">
+                    <p id="search-hint" class="hint"></p>
+                    <label class="add-to">Add to <select id="add-target" aria-label="Playlist to add songs to"></select></label>
+                </div>
+                <ul id="search-results" class="song-list"></ul>
+            </section>
+
+            <section id="view-structure" class="view" hidden>
+                <div class="structure-bar">
+                    <span>Traversal:</span>
+                    <button class="btn small active" data-direction="forward">Forward (head → tail)</button>
+                    <button class="btn small" data-direction="backward">Backward (tail → head)</button>
+                </div>
+                <div id="structure" class="structure"></div>
+            </section>
+            </div>
+        </main>
+
+        <footer class="player">
+            <div class="now">
+                <div id="now-art" class="art"></div>
+                <div class="now-text">
+                    <strong id="now-title">Nothing playing</strong>
+                    <span id="now-artist">Pick a song to start</span>
+                </div>
+            </div>
+            <div class="center">
+                <div class="controls">
+                    <button id="btn-repeat" class="icon" title="Repeat playlist" aria-label="Repeat playlist">⟳</button>
+                    <button id="btn-prev" class="icon" title="Previous" aria-label="Previous">⏮</button>
+                    <button id="btn-play" class="icon play" title="Play" aria-label="Play">▶</button>
+                    <button id="btn-next" class="icon" title="Next" aria-label="Next">⏭</button>
+                </div>
+                <div class="progress">
+                    <span id="time-current">0:00</span>
+                    <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Progress" />
+                    <span id="time-total">0:00</span>
+                </div>
+            </div>
+            <div class="volume">
+                <span aria-hidden="true">🔊</span>
+                <input id="volume" type="range" min="0" max="100" value="80" aria-label="Volume" />
+            </div>
+        </footer>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
