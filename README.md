@@ -8,6 +8,9 @@ Built with TypeScript for the Data Structures course.
 - Multiple playlists: create, name, select and delete.
 - **Add Local Songs**: pick your own `.mp3`, `.wav`, `.ogg`… from your computer (no preloaded songs).
 - **Search Online**: find songs on the internet and play them **in full** through YouTube's official embedded player (search uses the YouTube Data API), plus independent tracks from [Audius](https://audius.co). Listen right away **without adding them**, or add them to any playlist.
+- **Home** screen with what is popular right now (YouTube chart, or Audius trending), playable without adding.
+- **Liked Songs**: press the ♡ on any song; it is a built-in list with its own linked list (newest first, using `addFirst`).
+- **Shuffle** or list order: shuffle picks a random song that has not played yet in the round, without reordering the list.
 - Play, Pause, Next, Previous, Repeat, progress bar, volume, elapsed time and duration.
 - Reorder songs with **drag & drop** (or the ↑ ↓ buttons).
 - **Linked List View**: shows the real chain of nodes (`HEAD`, `TAIL`, `CURRENT`, every `prev` / `next`) and can be traversed forward or backward.
@@ -61,7 +64,7 @@ Searching YouTube needs a free API key:
 1. Go to <https://console.cloud.google.com>, create a project and enable **YouTube Data API v3**.
 2. **APIs & Services → Credentials → Create credentials → API key**.
 3. Restrict the key: *API restrictions* → YouTube Data API v3; *Website restrictions* →
-   `http://localhost:5173/*` and `https://juandavid100.github.io/*`
+   `http://localhost:5173/*` and `https://juandavid100.github.io/*`.
 4. On your computer: copy `.env.example` to `.env` and paste the key there (`.env` is ignored by git).
 5. On GitHub: **Settings → Secrets and variables → Actions → New repository secret**, name `VITE_YOUTUBE_API_KEY`.
 
@@ -78,7 +81,7 @@ npm run build    # type-check + production build in dist/
 
 ## Tests
 
-`npm test` runs 35 automated tests. The main cases:
+`npm test` runs 41 automated tests. The main cases:
 
 | # | Action | Expected result |
 |---|---|---|
@@ -98,7 +101,9 @@ npm run build    # type-check + production build in dist/
 | 14 | Add a song while another plays | Playback unaffected, new song plays in its place |
 | 15 | Switch playlist while playing | Music continues from the original playlist |
 | 16 | Delete the playlist that is playing | Playback stops |
-| 17 | Listen to a search result without adding it | It plays, playlists stay unchanged, Next goes to the next result |
+| 17 | Shuffle | Every song plays exactly once per round; the list order is untouched |
+| 18 | Like / unlike a song, also while it is playing | Liked Songs updates; playback continues |
+| 19 | Listen to a search result without adding it | It plays, playlists stay unchanged, Next goes to the next result |
 
 ## Deployment
 
