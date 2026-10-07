@@ -56,20 +56,19 @@ async function searchAudius(query: string): Promise<Song[]> {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Audius search failed (${response.status})`);
     const body = (await response.json()) as { data?: AudiusTrack[] };
-    return (body.data ?? [])
-        .filter((track) => track.is_streamable !== false)
-        .map(
-            (track) =>
-                new Song(
-                    `online-${track.id}`,
-                    track.title,
-                    track.user?.name ?? "Unknown artist",
-                    track.duration ?? 0,
-                    `${AUDIUS}/tracks/${track.id}/stream?app_name=${APP_NAME}`,
-                    "online",
-                    track.artwork?.["150x150"] ?? null
-                )
-        );
+    return (body.data ?? []).filter((track) => track.is_streamable !== false).map(audiusToSong);
+}
+
+function audiusToSong(track: AudiusTrack): Song {
+    return new Song(
+        `online-${track.id}`,
+        track.title,
+        track.user?.name ?? "Unknown artist",
+        track.duration ?? 0,
+        `${AUDIUS}/tracks/${track.id}/stream?app_name=${APP_NAME}`,
+        "online",
+        track.artwork?.["150x150"] ?? null
+    );
 }
 
 /** Loads a JSON API through a <script> tag, for when a direct request is blocked. */
@@ -128,11 +127,18 @@ async function searchItunes(query: string): Promise<Song[]> {
 
 interface YouTubeSearchItem {
     id?: { videoId?: string };
-    snippet?: { title?: string; channelTitle?: string; thumbnails?: { medium?: { url?: string }; default?: { url?: string } } };
+    snippet?: YouTubeSnippet;
+}
+interface YouTubeSnippet {
+    title?: string;
+    channelTitle?: string;
+    thumbnails?: { medium?: { url?: string }; default?: { url?: string } };
 }
 interface YouTubeVideoItem {
     id?: string;
+    snippet?: YouTubeSnippet;
     contentDetails?: { duration?: string };
+    status?: { embeddable?: boolean };
 }
 
 /** "PT1H2M3S" (ISO 8601, as YouTube reports it) -> seconds. */
@@ -205,4 +211,58 @@ export async function searchSongs(query: string): Promise<Song[]> {
     const first = known.status === "fulfilled" ? known.value : [];
     const second = open.status === "fulfilled" ? open.value : [];
     return first.concat(second);
+}
+
+export interface Recommendations {
+    title: string;
+    songs: Song[];
+}
+
+async function popularOnYouTube(): Promise<Song[]> {
+    const key = encodeURIComponent(YOUTUBE_API_KEY.trim());
+    // Most popular music videos in the visitor's country (from the browser language).
+    const region = (navigator.language.split("-")[1] ?? "US").toUpperCase();
+    const url =
+        `${YOUTUBE}/videos?part=snippet,contentDetails,status&chart=mostPopular&videoCategoryId=10` +
+        `&regionCode=${encodeURIComponent(region)}&maxResults=12&key=${key}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`YouTube chart failed (${response.status})`);
+    const body = (await response.json()) as { items?: YouTubeVideoItem[] };
+    return (body.items ?? [])
+        .filter((video) => video.id && video.status?.embeddable !== false)
+        .map((video) => {
+            const snippet = video.snippet ?? {};
+            return new Song(
+                `yt-${video.id}`,
+                decodeEntities(snippet.title ?? "Untitled"),
+                decodeEntities(snippet.channelTitle ?? "YouTube"),
+                parseIsoDuration(video.contentDetails?.duration ?? ""),
+                youtubeUrl(video.id!),
+                "online",
+                snippet.thumbnails?.medium?.url ?? snippet.thumbnails?.default?.url ?? null
+            );
+        });
+}
+
+async function trendingOnAudius(): Promise<Song[]> {
+    const response = await fetch(`${AUDIUS}/tracks/trending?limit=12&app_name=${APP_NAME}`);
+    if (!response.ok) throw new Error(`Audius trending failed (${response.status})`);
+    const body = (await response.json()) as { data?: AudiusTrack[] };
+    return (body.data ?? []).filter((track) => track.is_streamable !== false).map(audiusToSong);
+}
+
+/**
+ * Songs for the home screen: what is popular right now. These are public
+ * charts, not personal recommendations. Falls back to Audius if YouTube fails.
+ */
+export async function getRecommendations(): Promise<Recommendations> {
+    if (hasYouTubeKey()) {
+        try {
+            const songs = await popularOnYouTube();
+            if (songs.length > 0) return { title: "Popular right now", songs };
+        } catch {
+            /* fall through to Audius */
+        }
+    }
+    return { title: "Trending on Audius", songs: await trendingOnAudius() };
 }
