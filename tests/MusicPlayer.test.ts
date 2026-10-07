@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Playlist } from "../src/models/Playlist";
-import { MusicPlayer } from "../src/player/MusicPlayer";
+import { LIKED_ID, MusicPlayer } from "../src/player/MusicPlayer";
 import { FakeAudio, forward, song } from "./helpers";
 
 function setup(titles = "S1 S2 S3") {
@@ -253,4 +253,93 @@ test("a failing last song just stops", () => {
     audio.onError();
     assert.equal(current(), "S3");
     assert.equal(player.isPlaying, false);
+});
+
+test("liked songs: like, unlike, newest first, and it is not a normal playlist", () => {
+    const { player } = setup();
+    assert.equal(player.isLiked("id-S1"), false);
+    assert.equal(player.toggleLike(song("S1")).ok, true);
+    player.toggleLike(song("S3"));
+    assert.equal(forward(player.liked.songs), "S3 S1"); // newest first (addFirst)
+    assert.ok(player.isLiked("id-S1"));
+    assert.equal(player.playlists.size, 1); // not counted as a user playlist
+    assert.equal(player.playlists.get("rock")!.size, 3); // the playlist is untouched
+    player.toggleLike(song("S1"));
+    assert.equal(forward(player.liked.songs), "S3");
+    assert.equal(player.deletePlaylist(LIKED_ID).ok, false);
+    assert.equal(player.createPlaylist("liked songs").ok, false);
+});
+
+test("liked songs can be played, reordered and unliked while playing", () => {
+    const { player, audio, current } = setup();
+    player.toggleLike(song("S1"));
+    player.toggleLike(song("S2"));
+    player.toggleLike(song("S3")); // S3 S2 S1
+    player.playSong(LIKED_ID, "id-S3");
+    assert.equal(player.playingPlaylist, player.liked);
+    player.moveSong(LIKED_ID, 2, 1); // S3 S1 S2
+    audio.finish();
+    assert.equal(current(), "S1");
+    player.toggleLike(song("S1")); // unlike the one that is playing
+    assert.equal(current(), "S2");
+    assert.ok(player.isPlaying);
+});
+
+test("shuffle plays every song exactly once, then stops", () => {
+    const { player, audio, current } = setup("S1 S2 S3 S4 S5");
+    player.random = () => 0.99; // always the last pending song
+    player.playSong("rock", "id-S1");
+    player.toggleShuffle();
+    let order = current()!;
+    for (let i = 0; i < 4; i++) {
+        audio.finish();
+        order += " " + current();
+    }
+    assert.equal(order, "S1 S5 S4 S3 S2");
+    assert.equal(forward(player.playingPlaylist!.songs), "S1 S2 S3 S4 S5"); // list order untouched
+    audio.finish();
+    assert.equal(player.isPlaying, false); // round over
+    assert.equal(player.next().ok, false);
+});
+
+test("shuffle with repeat starts a new round; turning it off returns to list order", () => {
+    const { player, audio, current } = setup();
+    player.random = () => 0;
+    player.playSong("rock", "id-S2");
+    player.toggleShuffle();
+    player.toggleRepeat();
+    audio.finish(); // S1
+    audio.finish(); // S3
+    assert.equal(current(), "S3");
+    audio.finish(); // new round: first pending that is not S3
+    assert.equal(current(), "S1");
+    player.toggleShuffle(); // back to in-order
+    audio.finish();
+    assert.equal(current(), "S2");
+});
+
+test("shuffle copes with songs added and removed during the round", () => {
+    const { player, audio, current } = setup();
+    player.random = () => 0;
+    player.playSong("rock", "id-S1");
+    player.toggleShuffle();
+    player.removeSong("rock", "id-S2");
+    player.addSong("rock", song("NEW"));
+    audio.finish();
+    assert.equal(current(), "S3");
+    audio.finish();
+    assert.equal(current(), "NEW");
+    audio.finish();
+    assert.equal(player.isPlaying, false);
+});
+
+test("shuffle with a single song does not crash", () => {
+    const { player, audio, current } = setup("Only");
+    player.togglePlay();
+    player.toggleShuffle();
+    assert.equal(player.next().ok, false);
+    player.toggleRepeat();
+    audio.finish();
+    assert.equal(current(), "Only");
+    assert.ok(player.isPlaying);
 });
