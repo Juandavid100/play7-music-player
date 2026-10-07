@@ -61,7 +61,7 @@ Searching YouTube needs a free API key:
 1. Go to <https://console.cloud.google.com>, create a project and enable **YouTube Data API v3**.
 2. **APIs & Services → Credentials → Create credentials → API key**.
 3. Restrict the key: *API restrictions* → YouTube Data API v3; *Website restrictions* →
-   `http://localhost:5173/*` and `https://<user>.github.io/*`.
+   `http://localhost:5173/*` and `https://juandavid100.github.io/*`
 4. On your computer: copy `.env.example` to `.env` and paste the key there (`.env` is ignored by git).
 5. On GitHub: **Settings → Secrets and variables → Actions → New repository secret**, name `VITE_YOUTUBE_API_KEY`.
 
@@ -106,4 +106,4 @@ Every push to `main` runs the tests, builds the project and publishes it to GitH
 (`.github/workflows/deploy.yml`). Enable it once in the repository:
 **Settings → Pages → Source: GitHub Actions**.
 
-Public URL: `https://<user>.github.io/<repository>/`
+Public URL: https://juandavid100.github.io/play7-music-player/
