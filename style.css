@@ -39,6 +39,16 @@ h1, h2, p { margin: 0; }
 .brand h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; color: var(--green); text-shadow: 0 0 14px rgba(57, 255, 20, .55); }
 .brand h1 span { color: var(--purple); text-shadow: 0 0 14px rgba(176, 38, 255, .8); }
 .brand p { font-size: 12px; color: var(--muted); }
+.side-nav { background: var(--panel); border-radius: 10px; padding: 8px; display: grid; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 12px; background: none; border: 0; padding: 10px 12px; border-radius: 8px; font-weight: 700; color: var(--muted); text-align: left; }
+.nav-item span { font-size: 20px; width: 22px; text-align: center; }
+.nav-item:hover { color: var(--text); }
+.nav-item.active { color: var(--green); background: var(--panel-2); }
+.liked-link { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; padding: 8px 10px; border-radius: 8px; font-weight: 600; margin-bottom: 10px; text-align: left; }
+.liked-link:hover, .liked-link.selected { background: var(--panel-2); }
+.liked-link.selected .liked-name { color: var(--green); }
+.liked-icon { width: 34px; height: 34px; border-radius: 6px; display: grid; place-items: center; background: linear-gradient(135deg, var(--purple), var(--green)); color: #fff; flex: none; }
+.liked-name { flex: 1; }
 .library { background: var(--panel); border-radius: 10px; padding: 16px 10px; flex: 1; overflow-y: auto; min-height: 0; }
 .library h2 { font-size: 15px; font-weight: 700; color: var(--muted); margin: 0 6px 12px; }
 .playlist-form { display: flex; gap: 6px; margin: 0 4px 12px; }
@@ -60,7 +70,8 @@ h1, h2, p { margin: 0; }
 
 /* ---- main ---- */
 .main { grid-area: main; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); border-radius: 10px; min-height: 0; }
-/* Only this part scrolls. The video stage sits above it, so it is never scrolled away. */
+/* The scrolling area. The video stage is its first child and stays pinned
+   (sticky) at the top, so scrolling works from anywhere, even over the video. */
 .main-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 .hero { display: flex; align-items: flex-end; gap: 22px; padding: 44px 28px 24px; background: linear-gradient(180deg, #5a14a0 0%, #2a0d4a 55%, var(--panel) 100%); }
 .cover { width: 168px; height: 168px; flex: none; border-radius: 8px; display: grid; place-items: center; background: linear-gradient(135deg, #1a0b2e, #0b0712); box-shadow: 0 10px 40px rgba(0, 0, 0, .6), 0 0 0 1px rgba(57, 255, 20, .35); }
@@ -84,7 +95,7 @@ h1, h2, p { margin: 0; }
 .view { padding: 0 20px 24px; }
 
 .song-list { list-style: none; margin: 0; padding: 0; }
-.song, .song-head { display: grid; grid-template-columns: 24px 30px 1fr 92px 52px 96px; align-items: center; gap: 10px; padding: 8px 10px; }
+.song, .song-head { display: grid; grid-template-columns: 24px 30px 1fr 92px 52px 130px; align-items: center; gap: 10px; padding: 8px 10px; }
 .song-head { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
 .song-head span:nth-child(2) { text-align: right; }
 .song-head:has(+ .song-list .empty) { display: none; }
@@ -107,7 +118,7 @@ h1, h2, p { margin: 0; }
 .row-actions button:hover:not(:disabled) { color: var(--text); background: var(--line); }
 .row-actions button:disabled { opacity: .25; cursor: default; }
 .row-actions .remove:hover { color: var(--danger) !important; }
-.result { grid-template-columns: 36px 44px 1fr auto auto auto; }
+.result { grid-template-columns: 36px 44px 1fr auto auto auto auto; }
 .badge.full { border-color: var(--green); color: var(--green); }
 .preview { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--green); color: #041a00; font-size: 12px; }
 .preview:hover { transform: scale(1.08); box-shadow: 0 0 12px rgba(57, 255, 20, .6); }
@@ -121,6 +132,45 @@ h1, h2, p { margin: 0; }
 .search-form input { flex: 1; background: var(--panel-2); border: 1px solid transparent; border-radius: 999px; padding: 11px 18px; }
 .search-form input:focus { border-color: var(--purple); outline: none; }
 .hint { color: var(--muted); font-size: 13px; margin: 0 8px 12px; }
+
+/* ---- hearts ---- */
+.heart { background: none; border: 0; color: var(--muted); font-size: 18px; line-height: 1; padding: 4px 7px; border-radius: 6px; }
+.heart:hover { color: var(--text); transform: scale(1.12); }
+.heart.on { color: var(--green); text-shadow: 0 0 10px rgba(57, 255, 20, .7); }
+.cover { position: relative; }
+.cover-heart { display: none; font-size: 84px; color: #fff; text-shadow: 0 0 24px rgba(57, 255, 20, .8); }
+.cover.liked { background: linear-gradient(135deg, var(--purple), #3a0a66 55%, var(--green)); }
+.cover.liked svg { display: none; }
+.cover.liked .cover-heart { display: block; }
+
+/* ---- home and search pages ---- */
+.page { padding: 28px 28px 32px; }
+.page-title { font-size: clamp(26px, 3.4vw, 40px); font-weight: 900; letter-spacing: -1px; margin-bottom: 18px; }
+#page-home { background: linear-gradient(180deg, rgba(90, 20, 160, .55) 0, transparent 300px); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 30px; }
+.tile { display: flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, .07); border: 0; border-radius: 8px; padding: 0 12px 0 0; overflow: hidden; text-align: left; min-height: 60px; }
+.tile:hover { background: rgba(255, 255, 255, .14); }
+.tile-art { width: 60px; height: 60px; flex: none; display: grid; place-items: center; font-size: 24px; background: var(--panel-2); color: var(--green); }
+.tile.liked .tile-art { background: linear-gradient(135deg, var(--purple), var(--green)); color: #fff; }
+.tile-text { min-width: 0; display: grid; }
+.tile-text strong, .tile-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile-text span { color: var(--muted); font-size: 12px; }
+.section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.section-head h3 { margin: 0; font-size: 22px; font-weight: 800; }
+.cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+.card { background: var(--panel-2); border-radius: 10px; padding: 12px; display: grid; gap: 4px; min-width: 0; border: 1px solid transparent; transition: background .15s; }
+.card:hover { background: #251a36; }
+.card.current { border-color: var(--green); }
+.card.current .title { color: var(--green); }
+.card-art { position: relative; aspect-ratio: 1; border-radius: 8px; margin-bottom: 8px; background: linear-gradient(135deg, var(--purple), var(--green)); background-size: cover; background-position: center; box-shadow: 0 8px 20px rgba(0, 0, 0, .45); }
+.card-art .preview { position: absolute; right: 8px; bottom: 8px; width: 42px; height: 42px; font-size: 14px; box-shadow: 0 6px 14px rgba(0, 0, 0, .5); opacity: 0; transform: translateY(6px); transition: opacity .15s, transform .15s; }
+.card:hover .preview, .card:focus-within .preview, .card.current .preview { opacity: 1; transform: none; }
+.card .title, .card .artist { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .artist { color: var(--muted); font-size: 13px; }
+.card-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+.cards .empty { grid-column: 1 / -1; }
+@media (hover: none) { .card-art .preview { opacity: 1; transform: none; } }
+#page-search .search-form, #page-search .search-bar { margin-left: 0; margin-right: 0; }
 
 /* ---- linked list view ---- */
 .structure-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 8px 16px; color: var(--muted); }
@@ -137,7 +187,7 @@ h1, h2, p { margin: 0; }
 
 /* ---- cinema stage: the YouTube video while it plays ----
    It lives above the scrolling area, so it stays on screen at all times. */
-.stage { display: none; flex: none; flex-direction: column; align-items: center; gap: 14px; padding: 24px 28px 20px;
+.stage { display: none; position: sticky; top: 0; z-index: 4; flex-direction: column; align-items: center; gap: 14px; padding: 24px 28px 20px;
     --video-h: min(46vh, 520px);
     background:
         radial-gradient(ellipse at 50% 0%, rgba(176, 38, 255, .55), transparent 65%),
@@ -155,12 +205,11 @@ h1, h2, p { margin: 0; }
 .stage-text strong { font-size: clamp(18px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stage-text span:last-child { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stage-info .btn { flex: none; }
-/* compact view (chosen with the button) and docked view (automatic while you
-   scroll through the playlist): smaller video beside the title */
-.stage.compact, .stage.docked { --video-h: 200px; flex-direction: row; align-items: center; padding: 14px 28px; }
-.stage.compact .stage-video, .stage.docked .stage-video { flex: none; border-radius: 12px; }
-.stage.compact .stage-info, .stage.docked .stage-info { width: auto; flex: 1; flex-direction: column; align-items: flex-start; min-width: 0; }
-.stage.docked #stage-size { display: none; }
+/* compact view (with the button, or automatically when you scroll down to
+   the playlist): smaller video beside the title */
+.stage.compact { --video-h: 200px; flex-direction: row; align-items: center; padding: 14px 28px; box-shadow: 0 12px 28px rgba(0, 0, 0, .6); }
+.stage.compact .stage-video { flex: none; border-radius: 12px; }
+.stage.compact .stage-info { width: auto; flex: 1; flex-direction: column; align-items: flex-start; min-width: 0; }
 
 /* ---- player ---- */
 .player { grid-area: player; display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; gap: 16px; padding: 12px 16px; }
@@ -189,11 +238,14 @@ input[type="range"] { accent-color: var(--green); height: 4px; }
     .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; grid-template-areas: "side" "main" "player"; }
     .sidebar { max-height: 36vh; }
     .stage { padding: 12px 16px; --video-h: min(30vh, 56vw); }
-    .stage.compact, .stage.docked { --video-h: 112px; padding: 10px 16px; gap: 12px; }
+    .stage.compact { --video-h: 112px; padding: 10px 16px; gap: 12px; }
     .stage-info { flex-direction: column; align-items: flex-start; }
-    .stage.compact #stage-size, .stage.docked .kicker { display: none; }
-    .song, .song-head { grid-template-columns: 20px 1fr 44px 84px; }
-    .result { grid-template-columns: 36px 44px 1fr auto; }
+    .stage.compact .kicker { display: none; }
+    .song, .song-head { grid-template-columns: 20px 1fr 44px 118px; }
+    .result { grid-template-columns: 36px 44px 1fr auto auto; }
+    .page { padding: 16px; }
+    .side-nav { grid-template-columns: 1fr 1fr; }
+    .cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
     .result .dur { display: none; }
     .song .num, .song .badge, .song-head span:nth-child(2), .song-head span:nth-child(4) { display: none; }
     .player { grid-template-columns: 1fr; gap: 8px; }

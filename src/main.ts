@@ -4,9 +4,9 @@ import { SongNode } from "./models/SongNode";
 import { BrowserAudioEngine } from "./player/AudioEngine";
 import { RoutingAudioEngine } from "./player/RoutingAudioEngine";
 import { YouTubeEngine } from "./player/YouTubeEngine";
-import { ActionResult, MusicPlayer } from "./player/MusicPlayer";
+import { ActionResult, LIKED_ID, MusicPlayer } from "./player/MusicPlayer";
 import { deleteFile, songFromFile } from "./services/LocalFiles";
-import { hasYouTubeKey, isPreview, isYouTube, searchSongs } from "./services/MusicSearch";
+import { getRecommendations, hasYouTubeKey, isPreview, isYouTube, searchSongs } from "./services/MusicSearch";
 import { restoreState, saveState } from "./services/Storage";
 
 // Normal audio and YouTube behind one engine; the song's URL picks which one plays.
@@ -18,26 +18,43 @@ const stage = document.getElementById("yt-box") as HTMLElement;
 const scroller = document.getElementById("main-scroll") as HTMLElement;
 
 engine.onYouTubeActive = (active) => {
+    const wasShown = stage.classList.contains("show");
     stage.classList.toggle("show", active);
-    if (!active) stage.classList.remove("docked");
+    // A new video starts in cinema view, at the top.
+    if (active && !wasShown) {
+        setCompact(false);
+        scroller.scrollTop = 0;
+    }
 };
 
-// The video stage sits above the scrolling area, so it never leaves the
-// screen. While the user scrolls through the playlist it "docks" (shrinks)
-// to leave more room for the songs, and grows back at the top.
-const DOCKED_HEIGHT = 230;
+/** True when the video was shrunk by scrolling (not by the button). */
+let shrunkByScroll = false;
+
+function setCompact(compact: boolean): void {
+    stage.classList.toggle("compact", compact);
+    document.getElementById("stage-size")!.textContent = compact ? "Cinema view" : "Compact view";
+    if (!compact) shrunkByScroll = false;
+}
+
+// The stage is pinned at the top of the scrolling area. Scrolling down (from
+// anywhere, even with the mouse over the video) shrinks it so the playlist
+// has room; scrolling up again at the very top brings the cinema view back.
 scroller.addEventListener("scroll", () => {
     if (!stage.classList.contains("show") || stage.classList.contains("compact")) return;
-    const docked = stage.classList.contains("docked");
-    if (!docked && scroller.scrollTop > 24) {
-        // Docking makes the list area taller. Only dock if there will still be
-        // something to scroll afterwards; otherwise it would bounce back at once.
-        const gain = stage.offsetHeight - DOCKED_HEIGHT;
-        if (scroller.scrollHeight > scroller.clientHeight + gain + 60) stage.classList.add("docked");
-    } else if (docked && scroller.scrollTop <= 0) {
-        stage.classList.remove("docked");
+    if (scroller.scrollTop > 24) {
+        setCompact(true);
+        shrunkByScroll = true;
+        // Shrinking already reveals the content below, so start from the top.
+        scroller.scrollTop = 0;
     }
 });
+scroller.addEventListener(
+    "wheel",
+    (event) => {
+        if (shrunkByScroll && event.deltaY < 0 && scroller.scrollTop <= 0) setCompact(false);
+    },
+    { passive: true }
+);
 const player = new MusicPlayer(engine);
 
 function sourceLabel(song: Song): string {
@@ -83,28 +100,127 @@ function report(result: ActionResult, showSuccess = false): void {
 
 // ---- view state ------------------------------------------------------------
 
+type Page = "home" | "search" | "playlist";
+let page: Page = "home";
 let activeTab = "songs";
+/** Songs suggested on the home screen: their own linked list, playable without saving. */
+let recs = new Playlist("recommended", "Recommended");
+let recsStatus = "Loading…";
+/** Playlist that receives songs added from Home or Search. */
+let addTargetId = "";
 let direction: "forward" | "backward" = "forward";
 /** Search results live in their own linked list so they can be played without saving them. */
 let results = new Playlist("search-results", "Search results");
 let searchStatus = ""; // message shown instead of results (searching, empty, error)
 let dragFrom = -1;
 
+// ---- pages -----------------------------------------------------------------
+
+function showPage(next: Page): void {
+    page = next;
+    $("page-home").hidden = page !== "home";
+    $("page-search").hidden = page !== "search";
+    $("page-playlist").hidden = page !== "playlist";
+    document.querySelectorAll<HTMLElement>(".nav-item").forEach((item) => {
+        item.classList.toggle("active", item.dataset.page === page);
+    });
+    scroller.scrollTop = 0;
+    render();
+}
+
+function openPlaylist(playlistId: string): void {
+    const result = player.selectPlaylist(playlistId);
+    report(result);
+    if (result.ok) showPage("playlist");
+}
+
+function heartButton(song: Song): string {
+    const liked = player.isLiked(song.id);
+    const label = liked ? "Remove from Liked Songs" : "Add to Liked Songs";
+    return `<button class="heart${liked ? " on" : ""}" data-action="like" title="${label}" aria-label="${label}" aria-pressed="${liked}">${liked ? "♥" : "♡"}</button>`;
+}
+
 // ---- rendering -------------------------------------------------------------
 
 function renderPlaylists(): void {
+    const onPlaylistPage = page === "playlist";
     let html = "";
     for (const playlist of player.playlists.values()) {
-        const selected = playlist === player.selectedPlaylist ? " selected" : "";
+        const selected = onPlaylistPage && playlist === player.selectedPlaylist ? " selected" : "";
         const dot = playlist === player.playingPlaylist ? '<span class="playing-dot" title="Playing">♪</span>' : "";
         html += `<li class="${selected}">
             <button class="pick" data-action="select-playlist" data-id="${playlist.id}">
-                <span>${dot}${escapeHtml(playlist.name)}</span><span class="count">${playlist.size}</span>
+                <span translate="no">${dot}${escapeHtml(playlist.name)}</span><span class="count">${playlist.size}</span>
             </button>
             <button class="del" data-action="delete-playlist" data-id="${playlist.id}" title="Delete playlist" aria-label="Delete playlist ${escapeHtml(playlist.name)}">✕</button>
         </li>`;
     }
     $("playlist-list").innerHTML = html || '<li class="empty">No playlists yet.<br>Create your first one above.</li>';
+    $("liked-count").textContent = String(player.liked.size);
+    $("liked-link").classList.toggle("selected", onPlaylistPage && player.selectedPlaylist === player.liked);
+}
+
+/** Fills every "Add to" selector with the user's playlists and keeps them in sync. */
+function renderAddTargets(): void {
+    if (!player.playlists.has(addTargetId)) {
+        const selected = player.selectedPlaylist;
+        addTargetId = selected && selected !== player.liked ? selected.id : (player.playlists.keys().next().value ?? "");
+    }
+    let options = "";
+    for (const playlist of player.playlists.values()) {
+        options += `<option value="${playlist.id}"${playlist.id === addTargetId ? " selected" : ""}>${escapeHtml(playlist.name)}</option>`;
+    }
+    document.querySelectorAll<HTMLSelectElement>("select.add-target").forEach((select) => {
+        select.innerHTML = options || '<option value="">No playlists yet</option>';
+    });
+}
+
+function greeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 19) return "Good afternoon";
+    return "Good evening";
+}
+
+function renderHome(): void {
+    $("home-greeting").textContent = greeting();
+    // Shortcuts to your own lists.
+    let tiles = `<button class="tile liked" data-open="${LIKED_ID}">
+        <span class="tile-art" aria-hidden="true">♥</span>
+        <span class="tile-text"><strong>Liked Songs</strong><span>${player.liked.size} ${player.liked.size === 1 ? "song" : "songs"}</span></span>
+    </button>`;
+    for (const playlist of player.playlists.values()) {
+        tiles += `<button class="tile" data-open="${playlist.id}">
+            <span class="tile-art" aria-hidden="true">♪</span>
+            <span class="tile-text"><strong translate="no">${escapeHtml(playlist.name)}</strong><span>${playlist.size} ${playlist.size === 1 ? "song" : "songs"}</span></span>
+        </button>`;
+    }
+    $("home-tiles").innerHTML = tiles;
+
+    if (recsStatus) {
+        $("recs").innerHTML = `<li class="empty">${recsStatus}</li>`;
+        return;
+    }
+    const target = player.playlists.get(addTargetId) ?? null;
+    let html = "";
+    recs.songs.forEachForward((node) => {
+        const s = node.song;
+        const current = node === player.currentNode;
+        const art = s.artwork ? ` style="background-image:url('${escapeHtml(s.artwork)}')"` : "";
+        const added = target?.has(s.id) ?? false;
+        html += `<li class="card${current ? " current" : ""}" data-id="${escapeHtml(s.id)}">
+            <div class="card-art"${art}>
+                <button class="preview" data-action="play-result" title="Play" aria-label="Play ${escapeHtml(s.title)}">${current && player.isPlaying ? "❚❚" : "▶"}</button>
+            </div>
+            <strong class="title" translate="no">${escapeHtml(s.title)}</strong>
+            <span class="artist" translate="no">${escapeHtml(s.artist)}</span>
+            <div class="card-actions">
+                ${heartButton(s)}
+                <button class="btn small" data-action="add-result" ${added ? "disabled" : ""}>${added ? "Added" : "＋ Add"}</button>
+            </div>
+        </li>`;
+    });
+    $("recs").innerHTML = html;
 }
 
 function renderHeader(): void {
@@ -114,6 +230,7 @@ function renderHeader(): void {
         ? `${playlist.size} ${playlist.size === 1 ? "song" : "songs"} · ${formatTime(playlist.totalDuration())}`
         : "Create a playlist to start adding music.";
     $<HTMLButtonElement>("add-local").disabled = !playlist;
+    $("cover").classList.toggle("liked", playlist === player.liked);
 }
 
 function renderSongs(): void {
@@ -125,7 +242,9 @@ function renderSongs(): void {
     }
     if (playlist.songs.isEmpty()) {
         list.innerHTML =
-            '<li class="empty">This playlist is empty.<br>Use <b>Add Local Songs</b> or the <b>Search Online</b> tab.</li>';
+            playlist === player.liked
+                ? '<li class="empty">No liked songs yet.<br>Press the ♡ on any song to keep it here.</li>'
+                : '<li class="empty">This playlist is empty.<br>Use <b>Add Local Songs</b> or go to <b>Search</b>.</li>';
         return;
     }
     let html = "";
@@ -138,12 +257,13 @@ function renderSongs(): void {
             <span class="handle" title="Drag to reorder">⠿</span>
             <span class="num">${marker}</span>
             <button class="info" data-action="play-song" title="Play">
-                <span class="title">${escapeHtml(s.title)}</span>
-                <span class="artist">${escapeHtml(s.artist)}</span>
+                <span class="title" translate="no">${escapeHtml(s.title)}</span>
+                <span class="artist" translate="no">${escapeHtml(s.artist)}</span>
             </button>
             <span class="badge">${sourceLabel(s)}</span>
             <span class="dur">${formatTime(s.duration)}</span>
             <span class="row-actions">
+                ${heartButton(s)}
                 <button data-action="move-up" title="Move up" aria-label="Move up" ${index === 0 ? "disabled" : ""}>↑</button>
                 <button data-action="move-down" title="Move down" aria-label="Move down" ${index === last ? "disabled" : ""}>↓</button>
                 <button class="remove" data-action="remove-song" title="Remove" aria-label="Remove">✕</button>
@@ -188,20 +308,11 @@ function renderStructure(): void {
 }
 
 function renderSearch(): void {
-    // "Add to" selector: any playlist can receive a result, not only the one on screen.
-    const target = $<HTMLSelectElement>("add-target");
-    const chosen = target.value || player.selectedPlaylist?.id || "";
-    let options = "";
-    for (const playlist of player.playlists.values()) {
-        options += `<option value="${playlist.id}"${playlist.id === chosen ? " selected" : ""}>${escapeHtml(playlist.name)}</option>`;
-    }
-    target.innerHTML = options || '<option value="">No playlists yet</option>';
-    const targetPlaylist = player.playlists.get(target.value) ?? null;
-
     if (searchStatus) {
         $("search-results").innerHTML = `<li class="empty">${searchStatus}</li>`;
         return;
     }
+    const targetPlaylist = player.playlists.get(addTargetId) ?? null;
     let html = "";
     results.songs.forEachForward((node) => {
         const s = node.song;
@@ -211,9 +322,10 @@ function renderSearch(): void {
         html += `<li class="song result${current ? " current" : ""}" data-id="${escapeHtml(s.id)}">
             <button class="preview" data-action="play-result" title="Listen without adding" aria-label="Listen to ${escapeHtml(s.title)}">${current && player.isPlaying ? "❚❚" : "▶"}</button>
             ${art}
-            <span class="info"><span class="title">${escapeHtml(s.title)}</span><span class="artist">${escapeHtml(s.artist)}</span></span>
+            <span class="info"><span class="title" translate="no">${escapeHtml(s.title)}</span><span class="artist" translate="no">${escapeHtml(s.artist)}</span></span>
             <span class="badge${isPreview(s) ? "" : " full"}">${sourceLabel(s)}</span>
             <span class="dur">${formatTime(s.duration)}</span>
+            ${heartButton(s)}
             <button class="btn small" data-action="add-result" ${added ? "disabled" : ""}>${added ? "Added" : "＋ Add"}</button>
         </li>`;
     });
@@ -232,6 +344,19 @@ function renderPlayerBar(): void {
     play.title = player.isPlaying ? "Pause" : "Play";
     play.setAttribute("aria-label", play.title);
     $("btn-repeat").classList.toggle("on", player.repeat);
+    $("btn-repeat").setAttribute("aria-pressed", String(player.repeat));
+    $("btn-shuffle").classList.toggle("on", player.shuffle);
+    $("btn-shuffle").setAttribute("aria-pressed", String(player.shuffle));
+    $("btn-shuffle").title = player.shuffle ? "Shuffle is on (click for list order)" : "Shuffle is off (playing in list order)";
+    const like = $("btn-like");
+    like.hidden = !node;
+    if (node) {
+        const liked = player.isLiked(node.song.id);
+        like.textContent = liked ? "♥" : "♡";
+        like.classList.toggle("on", liked);
+        like.title = liked ? "Remove from Liked Songs" : "Add to Liked Songs";
+        like.setAttribute("aria-label", like.title);
+    }
     $("stage-title").textContent = node ? node.song.title : "";
     $("stage-artist").textContent = node ? node.song.artist : "";
     const heroPlaying = player.isPlaying && player.playingPlaylist === player.selectedPlaylist;
@@ -248,6 +373,8 @@ function renderProgress(): void {
 
 function render(): void {
     renderPlaylists();
+    renderAddTargets();
+    renderHome();
     renderHeader();
     renderSongs();
     renderStructure();
@@ -275,7 +402,7 @@ $("playlist-form").addEventListener("submit", (event) => {
         // Jump to the playlist that was just created.
         let lastId = "";
         for (const id of player.playlists.keys()) lastId = id;
-        player.selectPlaylist(lastId);
+        openPlaylist(lastId);
     }
 });
 
@@ -283,18 +410,37 @@ $("playlist-list").addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
     if (!button) return;
     const id = button.dataset.id!;
-    if (button.dataset.action === "select-playlist") report(player.selectPlaylist(id));
+    if (button.dataset.action === "select-playlist") openPlaylist(id);
     if (button.dataset.action === "delete-playlist") {
         const playlist = player.playlists.get(id);
         playlist?.songs.forEachForward((node) => {
             if (node.song.source === "local") forgetLocalFile(node.song, id);
         });
         report(player.deletePlaylist(id), true);
+        // The playlist on screen is gone: go back to Home.
+        if (page === "playlist" && !player.selectedPlaylist) showPage("home");
     }
+});
+
+// Sidebar navigation, Liked Songs and the home shortcuts
+document.querySelectorAll<HTMLElement>(".nav-item").forEach((item) => {
+    item.addEventListener("click", () => showPage(item.dataset.page as Page));
+});
+$("liked-link").addEventListener("click", () => openPlaylist(LIKED_ID));
+$("home-tiles").addEventListener("click", (event) => {
+    const tile = (event.target as HTMLElement).closest<HTMLElement>("[data-open]");
+    if (tile) openPlaylist(tile.dataset.open!);
+});
+document.querySelectorAll<HTMLSelectElement>("select.add-target").forEach((select) => {
+    select.addEventListener("change", () => {
+        addTargetId = select.value;
+        render();
+    });
 });
 
 /** Deletes the stored copy of a local file once no other playlist uses it. */
 function forgetLocalFile(song: Song, exceptPlaylistId: string): void {
+    if (exceptPlaylistId !== LIKED_ID && player.liked.has(song.id)) return;
     for (const playlist of player.playlists.values()) {
         if (playlist.id !== exceptPlaylistId && playlist.has(song.id)) return;
     }
@@ -305,7 +451,7 @@ document.querySelectorAll<HTMLElement>(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
         activeTab = tab.dataset.tab!;
         document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === tab));
-        for (const name of ["songs", "search", "structure"]) $(`view-${name}`).hidden = name !== activeTab;
+        for (const name of ["songs", "structure"]) $(`view-${name}`).hidden = name !== activeTab;
     });
 });
 
@@ -347,6 +493,11 @@ $("song-list").addEventListener("click", (event) => {
         case "play-song":
             report(player.playSong(playlist.id, songId));
             break;
+        case "like": {
+            const node = playlist.songs.find(songId);
+            if (node) report(player.toggleLike(node.song), true);
+            break;
+        }
         case "remove-song": {
             const node = playlist.songs.find(songId);
             if (node?.song.source === "local") forgetLocalFile(node.song, playlist.id);
@@ -429,35 +580,44 @@ $("search-form").addEventListener("submit", async (event) => {
     }
     renderSearch();
 });
-$("search-results").addEventListener("click", (event) => {
+/**
+ * Clicks on a list of songs that are not saved yet (search results or home
+ * recommendations): listen without adding, like, or add to a playlist.
+ */
+function handleUnsavedListClick(event: Event, list: Playlist): void {
     const button = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
-    const songId = button?.closest<HTMLElement>(".song")?.dataset.id;
+    const songId = button?.closest<HTMLElement>("[data-id]")?.dataset.id;
     if (!button || !songId) return;
-    const node = results.songs.find(songId);
+    const node = list.songs.find(songId);
     if (!node) return;
-    if (button.dataset.action === "play-result") {
-        // Listen without adding: play straight from the results list.
-        if (node === player.currentNode) report(player.togglePlay());
-        else report(player.playFrom(results, songId));
+    const s = node.song;
+    switch (button.dataset.action) {
+        case "play-result":
+            // Listen without adding: play straight from this list.
+            if (node === player.currentNode) report(player.togglePlay());
+            else report(player.playFrom(list, songId));
+            break;
+        case "like":
+            report(player.toggleLike(s), true);
+            break;
+        case "add-result":
+            if (!addTargetId) {
+                toast("Create a playlist first.", true);
+                return;
+            }
+            // A copy of the data: the playlist gets its own node, this list keeps its own.
+            report(player.addSong(addTargetId, new Song(s.id, s.title, s.artist, s.duration, s.url, s.source, s.artwork)), true);
+            break;
     }
-    if (button.dataset.action === "add-result") {
-        const targetId = $<HTMLSelectElement>("add-target").value;
-        if (!targetId) {
-            toast("Create a playlist first.", true);
-            return;
-        }
-        const s = node.song;
-        // A copy of the data: the playlist gets its own node, the result keeps its own.
-        report(player.addSong(targetId, new Song(s.id, s.title, s.artist, s.duration, s.url, s.source, s.artwork)), true);
-    }
-});
-$("add-target").addEventListener("change", renderSearch);
+}
+$("search-results").addEventListener("click", (event) => handleUnsavedListClick(event, results));
+$("recs").addEventListener("click", (event) => handleUnsavedListClick(event, recs));
 
 // Video size: cinema (large) or compact
 $("stage-size").addEventListener("click", () => {
-    stage.classList.remove("docked");
-    const compact = stage.classList.toggle("compact");
-    $("stage-size").textContent = compact ? "Cinema view" : "Compact view";
+    setCompact(!stage.classList.contains("compact"));
+    shrunkByScroll = false;
+    if (!stage.classList.contains("compact")) scroller.scrollTop = 0;
 });
 
 // Big play button of the playlist on screen
@@ -472,7 +632,17 @@ $("hero-play").addEventListener("click", () => {
 $("btn-play").addEventListener("click", () => report(player.togglePlay()));
 $("btn-next").addEventListener("click", () => report(player.next()));
 $("btn-prev").addEventListener("click", () => report(player.previous()));
-$("btn-repeat").addEventListener("click", () => player.toggleRepeat());
+$("btn-repeat").addEventListener("click", () => {
+    player.toggleRepeat();
+    toast(player.repeat ? "Repeat is on." : "Repeat is off.");
+});
+$("btn-shuffle").addEventListener("click", () => {
+    player.toggleShuffle();
+    toast(player.shuffle ? "Shuffle is on: random order." : "Shuffle is off: list order.");
+});
+$("btn-like").addEventListener("click", () => {
+    if (player.currentNode) report(player.toggleLike(player.currentNode.song), true);
+});
 
 let seeking = false;
 const seek = $<HTMLInputElement>("seek");
@@ -499,10 +669,23 @@ $("search-hint").textContent = hasYouTubeKey()
 
 // ---- start -----------------------------------------------------------------
 
-render();
+showPage("home");
 restoreState(player)
     .catch(() => {})
     .finally(() => {
         ready = true;
         render();
     });
+
+// Home recommendations: loaded once, in their own linked list.
+getRecommendations()
+    .then((found) => {
+        recs = new Playlist("recommended", "Recommended");
+        for (const song of found.songs) recs.addSong(song);
+        $("recs-title").textContent = found.title;
+        recsStatus = found.songs.length === 0 ? "No recommendations available right now." : "";
+    })
+    .catch(() => {
+        recsStatus = "Recommendations are unavailable right now. You can still search or add your own songs.";
+    })
+    .finally(renderHome);
